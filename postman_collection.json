@@ -1,0 +1,351 @@
+{
+  "info": {
+    "_postman_id": "8f4e2c10-5b9a-4d3e-9a12-7c6b5e4d3f21",
+    "name": "Lab 5 — Caching Proxy Server (Node.js)",
+    "description": "Колекція автоматичних тестів для кешуючого проксі-сервера (Лабораторна робота № 5).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "host",
+      "value": "127.0.0.1",
+      "type": "string"
+    },
+    {
+      "key": "port",
+      "value": "3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. GET /200 — картинка відсутня в кеші (з http.cat)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Заголовок Content-Type — image/jpeg', function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('image/jpeg');",
+              "});",
+              "",
+              "pm.test('Картинку отримано з http.cat (X-Image-Source: http.cat)', function () {",
+              "    pm.expect(pm.response.headers.get('X-Image-Source')).to.eql('http.cat');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/200",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "200"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. GET /200 — повторний запит тієї самої картинки (з кешу)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Заголовок Content-Type — image/jpeg', function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('image/jpeg');",
+              "});",
+              "",
+              "pm.test('Картинку отримано з локального кешу (X-Image-Source: cache)', function () {",
+              "    pm.expect(pm.response.headers.get('X-Image-Source')).to.eql('cache');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/200",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "200"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. PUT /201 — запис власної картинки в кеш",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 201 Created', function () {",
+              "    pm.response.to.have.status(201);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "image/jpeg",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "file",
+          "file": {
+            "src": "sample.jpg"
+          }
+        },
+        "url": {
+          "raw": "http://{{host}}:{{port}}/201",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "201"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. GET /201 — отримання власної картинки після PUT",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Заголовок Content-Type — image/jpeg', function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('image/jpeg');",
+              "});",
+              "",
+              "pm.test('Повернуто нашу картинку з кешу, а не з http.cat (X-Image-Source: cache)', function () {",
+              "    pm.expect(pm.response.headers.get('X-Image-Source')).to.eql('cache');",
+              "    pm.expect(Number(pm.response.headers.get('Content-Length'))).to.be.above(0);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/201",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "201"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. DELETE /201 — видалення наявної картинки з кешу",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/201",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "201"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. DELETE /201 — видалення картинки, якої немає в кеші",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 404 Not Found', function () {",
+              "    pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/201",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "201"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. GET /999 — запит неіснуючого коду стану",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 404 Not Found', function () {",
+              "    pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/999",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "999"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. POST /200 — запит із недозволеним методом",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 405 Method Not Allowed', function () {",
+              "    pm.response.to.have.status(405);",
+              "});",
+              "",
+              "pm.test('Заголовок Allow містить дозволені методи GET, PUT, DELETE', function () {",
+              "    pm.expect(pm.response.headers.get('Allow')).to.eql('GET, PUT, DELETE');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/200",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "200"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "9. GET /invalid — запит із некоректним шляхом URL",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Код стану відповіді — 400 Bad Request', function () {",
+              "    pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://{{host}}:{{port}}/invalid",
+          "protocol": "http",
+          "host": [
+            "{{host}}"
+          ],
+          "port": "{{port}}",
+          "path": [
+            "invalid"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
