@@ -1,6 +1,49 @@
-# 1. Перевірка недозволених HTTP-методів (405 Method Not Allowed)
+# Запуск сервера (у сусідньому вікні термінала):
+# node main.js -h 127.0.0.1 -p 3000 -c ./cache
+
+# 1. Перевірка недозволених HTTP-методів (очікується 405 Method Not Allowed + Allow: GET, PUT, DELETE)
 curl -i -X POST http://127.0.0.1:3000/200
-curl -D - -o /dev/null -s http://127.0.0.1:3000/200
+curl -i -X PATCH http://127.0.0.1:3000/200
+curl -I http://127.0.0.1:3000/200
+
+# 2. Перевірка некоректних шляхів URL та спроби виходу за межі теки кешу (очікується 400 Bad Request)
+curl -i http://127.0.0.1:3000/
+curl -i http://127.0.0.1:3000/invalid
+curl -i --path-as-is http://127.0.0.1:3000/../../etc/passwd
+
+# 3. Перевірка методу GET:
+# 3.1 Перший запит картинки, якої немає в кеші (200 OK, Content-Type: image/jpeg, X-Image-Source: http.cat)
+curl -D - -o /dev/null -s -w "Time: %{time_total}s\n" http://127.0.0.1:3000/200
+
+# 3.2 Повторний запит тієї самої картинки (200 OK, Content-Type: image/jpeg, X-Image-Source: cache)
+curl -D - -o /dev/null -s -w "Time: %{time_total}s\n" http://127.0.0.1:3000/200
+
+# 3.3 Запит ще одного коду (418 I'm a teapot) та повторне читання з кешу
+curl -D - -o /dev/null -s -w "Time: %{time_total}s\n" http://127.0.0.1:3000/418
+curl -D - -o /dev/null -s -w "Time: %{time_total}s\n" http://127.0.0.1:3000/418
+
+# 3.4 Запит неіснуючого коду стану (404 Not Found, у кеш нічого не зберігається)
 curl -i http://127.0.0.1:3000/999
+
+# 4. Перевірка методу PUT:
+# 4.1 Запис власної картинки в кеш для коду 201 (201 Created)
 curl -i -X PUT --data-binary @sample.jpg http://127.0.0.1:3000/201
+
+# 4.2 Перевірка GET після PUT — повертається власна картинка з кешу (200 OK, X-Image-Source: cache)
+curl -D - -o /dev/null -s http://127.0.0.1:3000/201
+
+# 4.3 Заміна вже наявної в кеші картинки для коду 200 (201 Created)
+curl -i -X PUT --data-binary @sample.jpg http://127.0.0.1:3000/200
+
+# 4.4 Спроба PUT із порожнім тілом запиту (400 Bad Request)
+curl -i -X PUT --data-binary "" http://127.0.0.1:3000/204
+
+# 5. Перевірка методу DELETE:
+# 5.1 Видалення наявної в кеші картинки (200 OK)
 curl -i -X DELETE http://127.0.0.1:3000/201
+
+# 5.2 Повторне видалення вже видаленої картинки (404 Not Found)
+curl -i -X DELETE http://127.0.0.1:3000/201
+
+# 5.3 Видалення картинки, якої ніколи не було в кеші (404 Not Found)
+curl -i -X DELETE http://127.0.0.1:3000/404
