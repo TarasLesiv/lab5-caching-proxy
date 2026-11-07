@@ -1,8 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import { Command } from 'commander';
+import superagent from 'superagent';
 
 const ALLOWED_METHODS = ['GET', 'PUT', 'DELETE'];
 
@@ -53,6 +55,67 @@ function extractStatusCode(rawUrl) {
   }
 }
 
+function getCacheFilePath(code) {
+  return path.join(cacheDir, `${code}.jpg`);
+}
+
+async function saveToCache(filePath, imageBuffer) {
+  const tempPath = `${filePath}.${randomUUID()}.tmp`;
+  try {
+    await fs.writeFile(tempPath, imageBuffer);
+    await fs.rename(tempPath, filePath);
+  } catch (writeError) {
+    try {
+      await fs.unlink(tempPath);
+    } catch {
+      // Ігноруємо, якщо тимчасовий файл не було створено
+    }
+    throw writeError;
+  }
+}
+
+async function handleGet(code, res) {
+  const filePath = getCacheFilePath(code);
+
+  try {
+    const cachedImage = await fs.readFile(filePath);
+    res.writeHead(200, {
+      'Content-Type': 'image/jpeg',
+      'Content-Length': cachedImage.length,
+      'X-Image-Source': 'cache',
+    });
+    res.end(cachedImage);
+    return;
+  } catch (readError) {
+    if (readError.code !== 'ENOENT') {
+      throw readError;
+    }
+  }
+
+  let upstreamResponse;
+  try {
+    upstreamResponse = await superagent.get(`https://http.cat/${code}`);
+  } catch {
+    sendText(res, 404, `Not Found: картинку для коду ${code} не знайдено ні в кеші, ні на http.cat\n`);
+    return;
+  }
+
+  const imageBuffer = upstreamResponse.body;
+  if (!Buffer.isBuffer(imageBuffer) || imageBuffer.length === 0) {
+    sendText(res, 404, `Not Found: некоректна відповідь від http.cat для коду ${code}\n`);
+    return;
+  }
+
+  await saveToCache(filePath, imageBuffer);
+
+  res.writeHead(200, {
+    'Content-Type': 'image/jpeg',
+    'Content-Length': imageBuffer.length,
+    'X-Image-Source': 'http.cat',
+  });
+  res.end(imageBuffer);
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (!ALLOWED_METHODS.includes(req.method)) {
@@ -65,6 +128,11 @@ const server = http.createServer(async (req, res) => {
     const code = extractStatusCode(req.url);
     if (!code) {
       sendText(res, 400, 'Bad Request: шлях URL має містити трицифровий код стану HTTP (наприклад, /200)\n');
+      return;
+    }
+
+    if (req.method === 'GET') {
+      await handleGet(code, res);
       return;
     }
 
