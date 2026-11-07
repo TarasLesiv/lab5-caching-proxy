@@ -3,3 +3,4 @@ curl -i -X POST http://127.0.0.1:3000/200
 curl -D - -o /dev/null -s http://127.0.0.1:3000/200
 curl -i http://127.0.0.1:3000/999
 curl -i -X PUT --data-binary @sample.jpg http://127.0.0.1:3000/201
+curl -i -X DELETE http://127.0.0.1:3000/201

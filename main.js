@@ -8,6 +8,7 @@ import superagent from 'superagent';
 
 const ALLOWED_METHODS = ['GET', 'PUT', 'DELETE'];
 
+// Розбір параметрів командного рядка
 const program = new Command();
 
 program
@@ -30,6 +31,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   process.exit(1);
 }
 
+// Підготовка теки кешу до початку приймання запитів
 try {
   await fs.mkdir(cacheDir, { recursive: true });
 } catch (mkdirError) {
@@ -37,6 +39,7 @@ try {
   process.exit(1);
 }
 
+// Надсилання текстової відповіді
 function sendText(res, statusCode, message, extraHeaders = {}) {
   res.writeHead(statusCode, {
     'Content-Type': 'text/plain; charset=utf-8',
@@ -45,6 +48,7 @@ function sendText(res, statusCode, message, extraHeaders = {}) {
   res.end(message);
 }
 
+// Перевірка шляху URL: дозволено лише трицифрові коди 100..999
 function extractStatusCode(rawUrl) {
   try {
     const { pathname } = new URL(rawUrl, 'http://localhost');
@@ -59,6 +63,7 @@ function getCacheFilePath(code) {
   return path.join(cacheDir, `${code}.jpg`);
 }
 
+// Асинхронне читання двійкового тіла запиту через проміс-ітератор потоку
 async function readRequestBody(req) {
   const chunks = [];
   for await (const chunk of req) {
@@ -67,6 +72,7 @@ async function readRequestBody(req) {
   return Buffer.concat(chunks);
 }
 
+// Атомарний запис картинки в кеш через тимчасовий файл і перейменування
 async function saveToCache(filePath, imageBuffer) {
   const tempPath = `${filePath}.${randomUUID()}.tmp`;
   try {
@@ -82,6 +88,7 @@ async function saveToCache(filePath, imageBuffer) {
   }
 }
 
+// Обробка GET: повернення з кешу або завантаження з http.cat
 async function handleGet(code, res) {
   const filePath = getCacheFilePath(code);
 
@@ -124,6 +131,7 @@ async function handleGet(code, res) {
   res.end(imageBuffer);
 }
 
+// Обробка PUT: збереження або заміна картинки в кеші
 async function handlePut(code, req, res) {
   const imageBuffer = await readRequestBody(req);
   if (imageBuffer.length === 0) {
@@ -136,6 +144,23 @@ async function handlePut(code, req, res) {
   sendText(res, 201, `Created: картинку для коду ${code} збережено в кеш\n`);
 }
 
+// Обробка DELETE: видалення картинки з кешу
+async function handleDelete(code, res) {
+  const filePath = getCacheFilePath(code);
+
+  try {
+    await fs.unlink(filePath);
+    sendText(res, 200, `OK: картинку для коду ${code} видалено з кешу\n`);
+  } catch (unlinkError) {
+    if (unlinkError.code === 'ENOENT') {
+      sendText(res, 404, `Not Found: картинки для коду ${code} немає в кеші\n`);
+      return;
+    }
+    throw unlinkError;
+  }
+}
+
+// Єдиний дозволений колбек — async-обробник запиту для http.createServer()
 const server = http.createServer(async (req, res) => {
   try {
     if (!ALLOWED_METHODS.includes(req.method)) {
@@ -161,7 +186,10 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    sendText(res, 501, 'Not Implemented\n');
+    if (req.method === 'DELETE') {
+      await handleDelete(code, res);
+      return;
+    }
   } catch (handlerError) {
     console.error(`Помилка обробки запиту ${req.method} ${req.url}: ${handlerError.message}`);
     if (!res.headersSent) {
@@ -172,6 +200,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Запуск сервера з очікуванням події listening через проміс
 try {
   server.listen(port, host);
   await once(server, 'listening');
