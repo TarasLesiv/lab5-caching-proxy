@@ -59,6 +59,14 @@ function getCacheFilePath(code) {
   return path.join(cacheDir, `${code}.jpg`);
 }
 
+async function readRequestBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks);
+}
+
 async function saveToCache(filePath, imageBuffer) {
   const tempPath = `${filePath}.${randomUUID()}.tmp`;
   try {
@@ -116,6 +124,18 @@ async function handleGet(code, res) {
   res.end(imageBuffer);
 }
 
+async function handlePut(code, req, res) {
+  const imageBuffer = await readRequestBody(req);
+  if (imageBuffer.length === 0) {
+    sendText(res, 400, 'Bad Request: тіло PUT-запиту не може бути порожнім\n');
+    return;
+  }
+
+  const filePath = getCacheFilePath(code);
+  await saveToCache(filePath, imageBuffer);
+  sendText(res, 201, `Created: картинку для коду ${code} збережено в кеш\n`);
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     if (!ALLOWED_METHODS.includes(req.method)) {
@@ -133,6 +153,11 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'GET') {
       await handleGet(code, res);
+      return;
+    }
+
+    if (req.method === 'PUT') {
+      await handlePut(code, req, res);
       return;
     }
 
