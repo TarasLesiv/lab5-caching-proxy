@@ -4,7 +4,8 @@
   "type": "module",
   "main": "main.js",
   "scripts": {
-    "start": "node main.js"
+    "start": "node main.js -h 127.0.0.1 -p 3000 -c ./cache",
+    "dev": "node --watch main.js -h 127.0.0.1 -p 3005 -c ./cache"
   },
   "dependencies": {
     "commander": "^14.0.3",
